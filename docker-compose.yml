@@ -1,0 +1,82 @@
+services:
+    nginx:
+        build:
+            context: .
+            dockerfile: ./_docker/nginx/Dockerfile
+        container_name: nginx_container
+        ports:
+            - "8000:80"
+        volumes:
+            - ./_docker/nginx/conf.d/localhost:/etc/nginx/conf.d/
+            - ./:/var/www/php/
+            # - nginx_data:/etc/nginx
+            # - nginx_logs:/var/log/nginx
+        networks:
+            - fortesting
+        restart: unless-stopped
+
+    php:
+        build:
+            context: .
+            dockerfile: ./_docker/php/Dockerfile
+        container_name: php_container
+        volumes:
+            - ./:/var/www/php
+        networks:
+            - fortesting
+        restart: unless-stopped
+        depends_on:
+            - rabbitmq
+
+    mysql:
+        image: mysql:8.2.0
+        restart: always
+        volumes:
+            - ./_docker/data/mysql:/var/lib/mysql
+        ports:
+            - "3306:3306"
+        command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --log_bin_trust_function_creators=1
+        env_file:
+            - ./_docker/mysql/mysql.env
+        container_name: mysql_container
+        networks:
+            - fortesting
+
+    redis:
+        image: redis:latest
+        container_name: redis_container
+        ports:
+            - "6379:6379"
+        networks:
+            - fortesting
+        restart: unless-stopped
+
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        container_name: phpmyadmin_container
+        links:
+            - mysql
+        environment:
+            PMA_HOST: mysql
+            PMA_PORT: 3306
+            PMA_ARBITRARY: 1
+            UPLOAD_LIMIT: 100000000
+        restart: always
+        ports:
+            - "8081:80"
+
+    rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+            - "15672:15672"
+            - "5672:5672"
+        networks:
+            - fortesting
+        environment:
+            - RABBITMQ_DEFAULT_USER=root
+            - RABBITMQ_DEFAULT_PASS=root
+
+volumes:
+    db_data:
+networks:
+    fortesting:
